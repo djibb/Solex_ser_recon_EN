@@ -115,12 +115,13 @@ def treat_flag_at_cli(argument):
                 i+=1
     print('options %s' % (options))
 
-def UI_SerBrowse (WorkDir, default_graphics, default_fits, default_clahe_only, default_crop_square, default_transversalium, default_transversalium_strength, default_rotation):
+def UI_SerBrowse( default_graphics, default_fits, default_clahe_only, default_crop_square, default_transversalium, default_transversalium_strength, default_rotation):
+    global WorkDir
     sg.theme('Dark2')
     sg.theme_button_color(('white', '#500000'))
     
     layout = [
-    [sg.Text('File(s)', size=(5, 1)), sg.InputText(default_text='',size=(75,1),key='-FILE-'),
+    [sg.Text('File(s)', size=(5, 1)), sg.InputText(default_text='',size=(75,1),key='-FILE-', enable_events=True),
      sg.FilesBrowse('Open',file_types=(("SER Files", "*.ser"),("AVI Files", "*.avi"),),initial_folder=WorkDir)],
     [sg.Checkbox('Show graphics', default=default_graphics, key='-DISP-')],
     [sg.Checkbox('Save fits files', default=default_fits, key='-FIT-')],
@@ -161,7 +162,12 @@ def UI_SerBrowse (WorkDir, default_graphics, default_fits, default_clahe_only, d
         event, values = window.read()
         if event==sg.WIN_CLOSED or event=='Cancel': 
             sys.exit()
-        
+        if event == '-FILE-' :
+            WorkDir = os.path.dirname(values['-FILE-'])+'/'
+            os.chdir(WorkDir)
+            read_ini()
+            #TODO change GUI value from options{}
+
         if event=='OK':
             if not values['-FILE-'] == WorkDir and not values['-FILE-'] == '':
                 try:
@@ -285,7 +291,7 @@ def read_value_from_cli(arguments):
 # get and return options and serfiles from user using GUI
 def inputUI():
     WorkDir, default_graphics, default_fits, default_clahe_only, default_crop_square, default_transversalium, default_transversalium_strength, default_rotation = read_ini()
-    serfiles, options = UI_SerBrowse(WorkDir, default_graphics, default_fits, default_clahe_only, default_crop_square, default_transversalium, default_transversalium_strength, default_rotation) #TODO as options is defined as global, only serfiles could be returned
+    serfiles, options = UI_SerBrowse( default_graphics, default_fits, default_clahe_only, default_crop_square, default_transversalium, default_transversalium_strength, default_rotation) #TODO as options is defined as global, only serfiles could be returned
     return options, serfiles, WorkDir
 
 """
