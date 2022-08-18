@@ -20,7 +20,7 @@ import math
 import numpy as np
 
 import os
-import sys
+import sys, json
 import Solex_recon as sol
 from astropy.io import fits
 import cProfile
@@ -37,11 +37,12 @@ def usage():
     usage_ += "'p' : 'disk_display' produce black disk with protuberance images (True by default)\n"
     usage_ += "'s' : 'crop_square_width', crop the width to equal the height (False by default)\n"
     usage_ += "'t' : 'disable transversalium', disable transversalium correction (False by default)\n"
-    usage_ += "'w' : 'a,b,c'  produce images at a, b and c pixels.\n"
-    usage_ += "'w' : 'x:y:w'  produce images starting at x, finishing at y, every w pixels."
+    usage_ += "'v' : 'transversalium correction', add an int between 1 and 999 from strength of transversalium : -v45 \n"
+    usage_ += "'w' : 'a,b,c'  produce images at a, b and c pixels. -w1,3,5\n"
+    usage_ += "'w' : 'x:y:w'  produce images starting at x, finishing at y, every w pixels. -w1:30:5"
     return usage_
     
-def treat_flag_at_cli(arguments):
+def treat_flag_at_cli(argument):
     """read cli arguments and produce options variable"""
     global options
     #reading arguments
@@ -75,6 +76,26 @@ def treat_flag_at_cli(arguments):
             else:
                 print('invalid shift input')
                 sys.exit()
+
+        elif character == 'v':
+            try :
+                stop = False
+                value = ''
+                while not stop :
+                    if argument[1:][i+1].isdigit() :
+                        value+=argument[1:][i+1]
+                        i+=1
+                    else :
+                        stop = True
+                        i+=1
+            except :
+                i+=1 #last caracter.
+            value = int(value)
+            if 1<value<999 :
+                options['trans_strength'] = value
+            else :
+                raise ValueError("bad transversalium value")
+
         elif character=='t':
             options['transversalium'] = False
             i+=1
@@ -233,6 +254,32 @@ def interpret_UI_values(ui_values):
         raise Exception('ERROR opening file :'+serfile+'!')
     return serfiles, options
 
+def read_value_from_cli(arguments):
+    global serfiles
+    if len(arguments)>1 :
+        for argument in arguments[1:]:
+            if '-' == argument[0]: #it's flag options
+                treat_flag_at_cli(argument)
+            else : #it's a file or some files
+                if argument.split('.')[-1].upper()=='SER' or argument.split('.')[-1].upper()=='AVI':
+                    serfiles.append(argument)
+        print('theses files are going to be processed : ', serfiles)
+
+def save_ini_file() :
+    global options, WorkDir
+    try:
+        print('Saving parameters in .ini file')
+        mydir_ini = os.path.join(os.path.dirname(sys.argv[0]),'SHG_v2.ini')
+        options_ = options.copy()
+        options_['Workdir'] = WorkDir
+        with open(mydir_ini, 'w') as fp:
+            json.dump(options_, fp, sort_keys=True, indent=4)
+
+    except:
+        traceback.print_exc()
+        print('ERROR: couldnt write file ' + mydir_ini)
+
+
 # get and return options and serfiles from user using GUI
 def inputUI():
     WorkDir, default_graphics, default_fits, default_clahe_only, default_crop_square, default_transversalium, default_transversalium_strength, default_rotation = read_ini()
@@ -271,19 +318,14 @@ flag_dictionnary = {
     'w' : 'shift',
     's' : 'crop_width_square', # True / False
     't' : 'transversalium', # True / False
-    'm' : 'flip_x' # True / False,
+    'm' : 'flip_x', # True / False
+    'v' : 'trans_strength' #a 000 to 999 value
     }
 
 # list of files to process
 ## add a command line argument.
-if len(sys.argv)>1 : 
-    for argument in sys.argv[1:]:
-        if '-' == argument[0]: #it's flag options
-            treat_flag_at_cli(argument)
-        else : #it's a file or some files
-            if argument.split('.')[-1].upper()=='SER' or argument.split('.')[-1].upper()=='AVI': 
-                serfiles.append(argument)
-    print('theses files are going to be processed : ', serfiles)
+read_value_from_cli(sys.argv) #need once to know if it's a cli launch.
+
 
 def do_work(cli = False):
     global options, WorkDir
@@ -299,9 +341,8 @@ def do_work(cli = False):
         print('file %s is processing'%serfile)
         WorkDir = os.path.dirname(serfile)+"/"
         os.chdir(WorkDir)
-        ####SPECIAL NEED FOR INI FILES FROM CLI###
-        if cli:
-            WorkDir, default_graphics, default_fits, default_clahe_only, default_crop_square, default_transversalium, default_transversalium_strength, default_rotation = read_ini(cli=True)
+
+
 
 
         base = os.path.basename(serfile)
@@ -319,22 +360,7 @@ def do_work(cli = False):
             sys.exit()
 
         # save parameters to .ini file
-        try:
-            print('Saving parameters in .ini file')
-            mydir_ini = os.path.join(os.path.dirname(sys.argv[0]),'SHG.ini')
-            with open(mydir_ini, "w") as f1:
-                options_to_write = [WorkDir,
-                                    str(options['flag_display']),  str(options['save_fit']),  str(options['clahe_only']), str(options['crop_width_square']), str(options['transversalium']), str(options['trans_strength']/100), str(options['img_rotate'])]
-                f1.writelines('\n'.join(options_to_write))
-        except:
-            traceback.print_exc()
-            print('ERROR: couldnt write file ' + mydir_ini)
-
-        # appel au module d'extraction, reconstruction et correction
-        #
-        # basefich: nom du fichier ser sans extension et sans repertoire
-        # dx: decalage en pixel par rapport au centre de la raie
-
+        save_ini_file()
         try : 
             sol.solex_proc(serfile,options.copy()) 
         except:
@@ -352,4 +378,7 @@ else:
             options, serfiles, WorkDir = inputUI()
             do_work()
     else:
-        do_work(cli = True) # use inputs from CLI
+        ####SPECIAL NEED FOR INI FILES FROM CLI###
+        read_ini()
+        read_value_from_cli(sys.argv) #need a second time to change values.
+        do_work()
