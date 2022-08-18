@@ -116,7 +116,7 @@ def treat_flag_at_cli(argument):
     print('options %s' % (options))
 
 def UI_SerBrowse( default_graphics, default_fits, default_clahe_only, default_crop_square, default_transversalium, default_transversalium_strength, default_rotation):
-    global WorkDir
+    global WorkDir, options
     sg.theme('Dark2')
     sg.theme_button_color(('white', '#500000'))
     
@@ -135,7 +135,7 @@ def UI_SerBrowse( default_graphics, default_fits, default_clahe_only, default_cr
          size=(25,15),
          orientation='horizontal',
          font=('Helvetica', 12),
-         key='img_rotate')],
+         key='-img_rotate-')],
     [sg.Checkbox('Correct transversalium lines', default=default_transversalium, key='-transversalium-', enable_events=True)],
     [sg.Text("Transversalium correction strength (pixels x 100) :", key='text_trans', visible=default_transversalium)],
     [sg.Slider(range=(0.5,7),
@@ -167,6 +167,18 @@ def UI_SerBrowse( default_graphics, default_fits, default_clahe_only, default_cr
             os.chdir(WorkDir)
             read_ini()
             #TODO change GUI value from options{}
+            window['-DISP-'].update(options['flag_display'])
+            window['-FIT-'].update(options['save_fit'])
+            window['-CLAHE_ONLY-'].update(options['clahe_only'])
+            window['-crop_width_square-'].update(options['crop_width_square'])
+            window['-flip_x-'].update(options['flip_x'])
+            window['-img_rotate-'].update(int(options['img_rotate']))
+            window['-transversalium-'].update(options['transversalium'])
+            window['-trans_strength-'].update(int(options['trans_strength'])/100)
+            window['-delta_radius-'].update(options['delta_radius'])
+            window['-SLANT-'].update(options['slant_fix'])
+            window['-RATIO-'].update(options['ratio_fixe'])
+
 
         if event=='OK':
             if not values['-FILE-'] == WorkDir and not values['-FILE-'] == '':
@@ -182,8 +194,6 @@ def UI_SerBrowse( default_graphics, default_fits, default_clahe_only, default_cr
                 sg.Popup('Error: file not entered! Please enter file(s)', keep_on_top=True)
         window.Element('-trans_strength-').Update(visible = values['-transversalium-'])
         window.Element('text_trans').Update(visible = values['-transversalium-'])    
-
-    
 
 '''
 open SHG.ini and read parameters
@@ -261,7 +271,7 @@ def interpret_UI_values(ui_values):
     options['transversalium'] = ui_values['-transversalium-']
     options['trans_strength'] = int(ui_values['-trans_strength-']*100) + 1
     options['flip_x'] = ui_values['-flip_x-']
-    options['img_rotate'] = int(ui_values['img_rotate'])
+    options['img_rotate'] = int(ui_values['-img_rotate-'])
     serfiles=ui_values['-FILE-'].split(';')
     try:
         for serfile in serfiles:
@@ -305,8 +315,8 @@ WorkDir = ''
 options = {    
 'shift':[0],
 'flag_display':False,
-'ratio_fixe' : None,
-'slant_fix' : None ,
+'ratio_fixe' : 0,
+'slant_fix' : 0,
 'save_fit' : False,
 'clahe_only' : True,
 'disk_display' : True, #protus
