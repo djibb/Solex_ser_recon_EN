@@ -189,25 +189,36 @@ def read_ini():
     print('Check if .ini file is present')
 
     try:
-        mydir_ini=os.path.join(os.path.dirname(sys.argv[0]),'SHG.ini')
+        mydir_ini=os.path.join(os.path.dirname(sys.argv[0]),'SHG_v2.ini')
+        print('Attempting to read %s in %s directory'%(mydir_ini,  os.getcwd()))
+        with open(mydir_ini, 'r') as fp:
+            options_ = json.load(fp)
+            options = options_.copy()
+            WorkDir = options.pop('WorkDir')
+        print('Reading OK')
 
-        with open(mydir_ini, "r") as f1:
-            print('a SHG.ini is present. Read data from it', 'file : ',mydir_ini, 'in',  os.getcwd())
-            param_init = f1.read().splitlines()
-            WorkDir = param_init[0]
-            options['flag_display'] = param_init[1] == 'True'
-            options['save_fit'] = param_init[2] == 'True'
-            options['clahe_only'] = param_init[3] == 'True'
-            options['crop_width_square'] = param_init[4] == 'True'
-            options['transversalium'] = param_init[5] == 'True'
-            options['trans_strength'] = int(float(param_init[6])*100)
-            options['img_rotate'] = int(param_init[7])
-
-    except:
+    except FileNotFoundError:
         print('note: error reading .ini file - using default parameters')
         WorkDir=''
 
     return WorkDir, options['flag_display'], options['save_fit'], options['clahe_only'], options['crop_width_square'], options['transversalium'], options['trans_strength']/100, options['img_rotate']
+
+def save_ini_file() :
+    global options, WorkDir
+    try:
+
+        mydir_ini = os.path.join(os.path.dirname(sys.argv[0]),'SHG_v2.ini')
+        options_ = options.copy()
+        options_['WorkDir'] = WorkDir
+        print('Saving parameters in %s file in %s directory '%(mydir_ini, os.getcwd()))
+        with open(mydir_ini, 'w') as fp:
+            json.dump(options_, fp, sort_keys=True, indent=4)
+
+    except:
+        traceback.print_exc()
+        print('ERROR: couldnt write file ' + mydir_ini)
+
+
 
 def interpret_UI_values(ui_values):
     try:
@@ -255,29 +266,20 @@ def interpret_UI_values(ui_values):
     return serfiles, options
 
 def read_value_from_cli(arguments):
-    global serfiles
+    global serfiles, WorkDir
     if len(arguments)>1 :
         for argument in arguments[1:]:
             if '-' == argument[0]: #it's flag options
                 treat_flag_at_cli(argument)
             else : #it's a file or some files
-                if argument.split('.')[-1].upper()=='SER' or argument.split('.')[-1].upper()=='AVI':
-                    serfiles.append(argument)
+                if serfiles == [] : #first pass
+                    if argument.split('.')[-1].upper()=='SER' or argument.split('.')[-1].upper()=='AVI':
+                        serfiles.append(argument)
+        WorkDir = os.path.dirname(argument)+"/"
+        os.chdir(WorkDir)
         print('theses files are going to be processed : ', serfiles)
 
-def save_ini_file() :
-    global options, WorkDir
-    try:
-        print('Saving parameters in .ini file')
-        mydir_ini = os.path.join(os.path.dirname(sys.argv[0]),'SHG_v2.ini')
-        options_ = options.copy()
-        options_['Workdir'] = WorkDir
-        with open(mydir_ini, 'w') as fp:
-            json.dump(options_, fp, sort_keys=True, indent=4)
 
-    except:
-        traceback.print_exc()
-        print('ERROR: couldnt write file ' + mydir_ini)
 
 
 # get and return options and serfiles from user using GUI
@@ -380,5 +382,5 @@ else:
     else:
         ####SPECIAL NEED FOR INI FILES FROM CLI###
         read_ini()
-        read_value_from_cli(sys.argv) #need a second time to change values.
+        read_value_from_cli(sys.argv) #need a second time to change values in options from cli.
         do_work()
