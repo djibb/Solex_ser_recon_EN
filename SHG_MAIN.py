@@ -105,7 +105,7 @@ def treat_flag_at_cli(arguments):
             shift_choice = shift.split(',')
             try:
                 a, b, c = shift_choice
-            except ValueError::
+            except ValueError:
                 print('invalid polynome fitting input')
                 sys.exit()
         elif character == 'w':
