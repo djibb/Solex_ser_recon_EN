@@ -88,7 +88,7 @@ def treat_flag_at_cli(arguments):
         if character=='h': #asking help menu
             print(usage())
             sys.exit()
-        elif caracter=='pf':
+        elif character=='pf':
             #find characters for shifting
             shift = ''
             stop = False
