@@ -45,7 +45,9 @@ options = {
     'trans_strength': 301,
     'img_rotate': 0,
     'flip_x': False,
-    'workDir': ''
+    'workDir': '',
+    'poly_fit':None
+
 }
 
 flag_dictionnary = {
@@ -56,7 +58,9 @@ flag_dictionnary = {
     'w' : 'shift',
     's' : 'crop_width_square', # True / False
     't' : 'transversalium', # True / False
-    'm' : 'flip_x' # True / False
+    'm' : 'flip_x', # True / False
+    'pf': 'poly_fit' #None, a,b,c
+
 }
 
 
@@ -72,6 +76,7 @@ def usage():
     usage_ += "'t' : 'disable transversalium', disable transversalium correction (False by default)\n"
     usage_ += "'w' : 'a,b,c'  produce images at a, b and c pixels.\n"
     usage_ += "'w' : 'x:y:w'  produce images starting at x, finishing at y, every w pixels."
+    usage_ += "'pf' : 'a,b,c'  using polynome a*x²+b*x+c as fitting "
     return usage_
     
 def treat_flag_at_cli(arguments):
@@ -83,9 +88,29 @@ def treat_flag_at_cli(arguments):
         if character=='h': #asking help menu
             print(usage())
             sys.exit()
-        elif character=='w' :
+        elif caracter=='pf':
             #find characters for shifting
-            shift=''
+            shift = ''
+            stop = False
+            try :
+                while not stop:
+                    if argument[1:][i+1].isdigit() or argument[1:][i+1]==',' or argument[1:][i+1]=='.':
+                        shift += argument[1:][i+1]
+                        i += 1
+                    else :
+                        i += 1
+                        stop = True
+            except IndexError:
+                i += 1 #the reach the end of arguments.
+            shift_choice = shift.split(',')
+            try:
+                a, b, c = shift_choice
+            except ValueError::
+                print('invalid polynome fitting input')
+                sys.exit()
+        elif character == 'w':
+            #find characters for shifting
+            shift = ''
             stop = False
             try : 
                 while not stop : 
