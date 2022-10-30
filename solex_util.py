@@ -94,7 +94,7 @@ def read_video_improved(file, fit, options):
 
             if options.get('doppler'): #compute difference between actual and reference
                 left_col_reference = img[np.arange(ih), ind_l_reference]
-                IntensiteRaie = (left_col-left_col_reference)
+                IntensiteRaie = left_col-left_col_reference
                 #print(np.max(IntensiteRaie),left_col, left_col_reference)
             else:
                 IntensiteRaie = left_col * left_weights + right_col * right_weights
