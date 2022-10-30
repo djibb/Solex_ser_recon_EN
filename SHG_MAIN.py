@@ -88,13 +88,14 @@ def treat_flag_at_cli(arguments):
         if character=='h': #asking help menu
             print(usage())
             sys.exit()
-        elif character=='pf':
+        elif character=='p' and argument[1:][i+1]=='f':
             #find characters for shifting
+            i+=1
             shift = ''
             stop = False
             try :
                 while not stop:
-                    if argument[1:][i+1].isdigit() or argument[1:][i+1]==',' or argument[1:][i+1]=='.':
+                    if argument[1:][i+1].isdigit() or argument[1:][i+1]==',' or argument[1:][i+1]=='.' or argument[1:][i+1]=='e' or argument[1:][i+1]=='+' or argument[1:][i+1]=='-':
                         shift += argument[1:][i+1]
                         i += 1
                     else :
@@ -106,8 +107,11 @@ def treat_flag_at_cli(arguments):
             try:
                 a, b, c = shift_choice
             except ValueError:
-                print('invalid polynome fitting input')
+                print('invalid polynome fitting input : ', shift_choice)
+                print('USAGE : python3 SHG_MAIN.py -pf1.45881927e+02,-2.16219665e-01,9.45250257e-05 files')
                 sys.exit()
+            options['poly_fit'] = [float(a),float(b),float(c)]
+
         elif character == 'w':
             #find characters for shifting
             shift = ''
@@ -307,7 +311,7 @@ if len(sys.argv)>1 :
                 serfiles.append(argument)
     print('theses files are going to be processed : ', serfiles)
 
-def do_work(cli = False):
+def do_work():
     print('in do work')
     if len(serfiles)==1:
         options['tempo']=60000 #4000 #pour gerer la tempo des affichages des images resultats dans cv2.waitKey
@@ -322,10 +326,6 @@ def do_work(cli = False):
         options['workDir'] = os.path.dirname(serfile)+"/"
         os.chdir(options['workDir'])
 
-        #### TODO: SPECIAL NEED FOR INI FILES FROM CLI###
-        if cli:
-            read_ini()
-        ####
 
         base = os.path.basename(serfile)
         basefich = os.path.splitext(base)[0]
