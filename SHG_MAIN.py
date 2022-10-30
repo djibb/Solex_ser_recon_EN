@@ -46,11 +46,12 @@ options = {
     'img_rotate': 0,
     'flip_x': False,
     'workDir': '',
-    'poly_fit':None
+    'poly_fit':None,
+    'doppler':None,
 
 }
 
-flag_dictionnary = {
+flag_dictionnary = { #add True/False flag here. Managed near line 147
     'd' : 'flag_display', #True False display all pictures
     'c' : 'clahe_only',  #True/False
     'f' : 'save_fit', #True/False
@@ -58,15 +59,14 @@ flag_dictionnary = {
     'w' : 'shift',
     's' : 'crop_width_square', # True / False
     't' : 'transversalium', # True / False
-    'm' : 'flip_x', # True / False
-    'pf': 'poly_fit' #None, a,b,c
+    'm' : 'flip_x'
 
 }
 
 
 
 def usage():
-    usage_ = "SHG_MAIN.py [-dcfpstwm] [file(s) to treat, * allowed]\n"
+    usage_ = "SHG_MAIN.py [-dcfpstwmpf] [file(s) to treat, * allowed]\n"
     usage_ += "'d' : 'flag_display', display all graphics (False by default)\n"
     usage_ += "'c' : 'clahe_only',  only final clahe image is saved (False by default)\n"
     usage_ += "'f' : 'save_fit', save all fits files (False by default)\n"
@@ -76,7 +76,8 @@ def usage():
     usage_ += "'t' : 'disable transversalium', disable transversalium correction (False by default)\n"
     usage_ += "'w' : 'a,b,c'  produce images at a, b and c pixels.\n"
     usage_ += "'w' : 'x:y:w'  produce images starting at x, finishing at y, every w pixels."
-    usage_ += "'pf' : 'a,b,c'  using polynome a*x²+b*x+c as fitting "
+    usage_ += "'P' : 'a,b,c'  using polynome a*x²+b*x+c as fitting "
+    usage_ += "'D' : Dopplergram using base polynome, compute and display difference between minima  "
     return usage_
     
 def treat_flag_at_cli(arguments):
@@ -88,9 +89,8 @@ def treat_flag_at_cli(arguments):
         if character=='h': #asking help menu
             print(usage())
             sys.exit()
-        elif character=='p' and argument[1:][i+1]=='f':
+        elif character=='P':
             #find characters for shifting
-            i+=1
             shift = ''
             stop = False
             try :
@@ -108,7 +108,7 @@ def treat_flag_at_cli(arguments):
                 a, b, c = shift_choice
             except ValueError:
                 print('invalid polynome fitting input : ', shift_choice)
-                print('USAGE : python3 SHG_MAIN.py -pf1.45881927e+02,-2.16219665e-01,9.45250257e-05 files')
+                print('USAGE : python3 SHG_MAIN.py -P1.45881927e+02,-2.16219665e-01,9.45250257e-05 files')
                 sys.exit()
             options['poly_fit'] = [float(a),float(b),float(c)]
 
@@ -140,6 +140,9 @@ def treat_flag_at_cli(arguments):
             options['transversalium'] = False
             i+=1
         elif character=='p':
+            options['disk_display'] = False
+            i+=1
+        elif character=='D':
             options['disk_display'] = False
             i+=1
         else : 
