@@ -58,14 +58,26 @@ def read_video_improved(file, fit, options):
     col_indeces = []
 
     for shift in options['shift']:
+        if options.get('poly_fit')is not None and options.get('doppler') is None :
+            #user wants to use is proper dispersion polynome
+            p = options.get('poly_fit')
+            curve = polyval(np.asarray(np.arange(ih), dtype='d'), p)
+            fit = [[math.floor(curve[y]), curve[y] - math.floor(curve[y]), y] for y in range(ih)]
         ind_l = (np.asarray(fit)[:, 0] + np.ones(ih)*shift).astype(int)
-
+        #shift based only ;
+        if options.get('doppler'):
+            #for doppler we need 2 values.
+            #One with fit computed on picture (ind_l), one with a reference, in poly_fit option. Computed here
+            p = options.get('poly_fit')
+            curve = polyval(np.asarray(np.arange(ih), dtype='d'), p)
+            fit = [[math.floor(curve[y]), curve[y] - math.floor(curve[y]), y] for y in range(ih)]
+            ind_l_reference = (np.asarray(fit)[:, 0] + np.ones(ih)*shift).astype(int)
         # CLEAN if fitting goes too far
         ind_l[ind_l < 0] = 0
         ind_l[ind_l > iw - 2] = iw - 2
         ind_r = (ind_l + np.ones(ih)).astype(int)
         col_indeces.append((ind_l, ind_r))
-
+    #col_indeces are list of indeces of pixels of minima (or shifted)
     left_weights = np.ones(ih) - np.asarray(fit)[:, 1]
     right_weights = np.ones(ih) - left_weights
 
@@ -74,10 +86,18 @@ def read_video_improved(file, fit, options):
     while rdr.has_frames():
         img = rdr.next_frame()
         for i in range(len(options['shift'])):
+            #extract column
             ind_l, ind_r = col_indeces[i]
             left_col = img[np.arange(ih), ind_l]
             right_col = img[np.arange(ih), ind_r]
-            IntensiteRaie = left_col * left_weights + right_col * right_weights
+
+
+            if options.get('doppler'): #compute difference between actual and reference
+                left_col_reference = img[np.arange(ih), ind_l_reference]
+                IntensiteRaie = (left_col-left_col_reference)
+                #print(np.max(IntensiteRaie),left_col, left_col_reference)
+            else:
+                IntensiteRaie = left_col * left_weights + right_col * right_weights
             disk_list[i][:, rdr.FrameIndex] = IntensiteRaie
 
         if options['flag_display'] and rdr.FrameIndex % 10 == 0:
@@ -171,12 +191,9 @@ def compute_mean_return_fit(file, options, hdr, iw, ih, basefich0):
     y2 = max(0, y2-10)
     logme('Vertical limits y1, y2 : ' + str(y1) + ' ' + str(y2))
     min_intensity = np.argmin(mean_img, axis = 1) # use mean image to detect spectral line
-    if options.get('poly_fit') is not None :
-        p = np.array(options.get('poly_fit'))
-        logme('#CAREFUL : using provided spectral line polynomial fit : ' + str(p))
-    else :
-        p = np.flip(np.asarray(np.polyfit(np.arange(y1, y2), min_intensity[y1:y2], 2), dtype='d'))
-        logme('Spectral line polynomial fit : ' + str(p))
+
+    p = np.flip(np.asarray(np.polyfit(np.arange(y1, y2), min_intensity[y1:y2], 2), dtype='d'))
+    logme('Spectral line polynomial fit : ' + str(p))
     curve = polyval(np.asarray(np.arange(ih), dtype='d'), p)
     fit = [[math.floor(curve[y]), curve[y] - math.floor(curve[y]), y] for y in range(ih)]
     if not options['clahe_only']:
