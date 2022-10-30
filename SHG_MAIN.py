@@ -143,7 +143,7 @@ def treat_flag_at_cli(arguments):
             options['disk_display'] = False
             i+=1
         elif character=='D':
-            options['disk_display'] = False
+            options['doppler'] = True
             i+=1
         else : 
             try : #all others
@@ -153,6 +153,10 @@ def treat_flag_at_cli(arguments):
                 print('ERROR !!! At least one argument is not accepted')
                 print(usage())
                 i+=1
+    if options['doppler'] and options['poly_fit'] is None:
+        print('ERROR !!! D option need a polynome provided by P option.')
+        print('USAGE : python3 SHG_MAIN.py -DP1.45881927e+02,-2.16219665e-01,9.45250257e-05 files')
+        sys.exit()
     print('options %s' % (options))
 
 def interpret_UI_values(ui_values):
