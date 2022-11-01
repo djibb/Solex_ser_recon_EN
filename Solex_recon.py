@@ -80,12 +80,13 @@ def solex_proc(file, options):
             DiskHDU.writeto(basefich + '_circular.fits', overwrite='True')
 
 
-        if options['transversalium']:
+        if options['transversalium'] and options['doppler'] is None:
             if not cercle0 == (-1, -1, -1):
                 detransversaliumed = correct_transversalium2(frame_circularized, cercle0, borders, options, i >= 2, basefich)
             else:
                 detransversaliumed = correct_transversalium2(frame_circularized, (0,0,99999), [0, backup_y1+20, frame_circularized.shape[1] -1, backup_y2-20], options, i >= 2, basefich)
         else:
+
             detransversaliumed = frame_circularized
 
         if options['save_fit'] and i >= 2 and options['transversalium']:  # first two shifts are not user specified

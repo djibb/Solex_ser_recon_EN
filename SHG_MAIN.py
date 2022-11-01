@@ -74,10 +74,10 @@ def usage():
     usage_ += "'p' : 'disk_display' turn off black disk with protuberance images (False by default)\n"
     usage_ += "'s' : 'crop_square_width', crop the width to equal the height (False by default)\n"
     usage_ += "'t' : 'disable transversalium', disable transversalium correction (False by default)\n"
-    usage_ += "'w' : 'a,b,c'  produce images at a, b and c pixels.\n"
-    usage_ += "'w' : 'x:y:w'  produce images starting at x, finishing at y, every w pixels."
-    usage_ += "'P' : 'a,b,c'  using polynome a*x²+b*x+c as fitting "
-    usage_ += "'D' : Dopplergram using base polynome, compute and display difference between minima  "
+    usage_ += "'w' : 'a,b,c'  produce images at a, b and c pixels from minima\n"
+    usage_ += "'w' : 'x:y:w'  produce images starting at x, finishing at y, every w pixels from minima\n"
+    usage_ += "'P' : 'a,b,c'  using polynome a*x²+b*x+c as fitting\n"
+    usage_ += "'D' : DOESN'T WORK ->  Dopplergram using base polynome, compute and display difference between minima \n"
     return usage_
     
 def treat_flag_at_cli(arguments):
@@ -324,7 +324,7 @@ def do_work():
         options['tempo']=60000 #4000 #pour gerer la tempo des affichages des images resultats dans cv2.waitKey
     else:
         options['tempo']=5000
-        
+
     # boucle sur la liste des fichers
     for serfile in serfiles:
         if serfile=='':

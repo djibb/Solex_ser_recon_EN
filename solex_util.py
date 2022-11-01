@@ -56,6 +56,8 @@ def read_video_improved(file, fit, options):
         cv2.resizeWindow('image', int(iw * scaling), int(ih * scaling))
 
     col_indeces = []
+    if options.get('doppler'):
+        col_indeces_references = []
 
     for shift in options['shift']:
         if options.get('poly_fit')is not None and options.get('doppler') is None :
@@ -63,41 +65,58 @@ def read_video_improved(file, fit, options):
             p = options.get('poly_fit')
             curve = polyval(np.asarray(np.arange(ih), dtype='d'), p)
             fit = [[math.floor(curve[y]), curve[y] - math.floor(curve[y]), y] for y in range(ih)]
-        ind_l = (np.asarray(fit)[:, 0] + np.ones(ih)*shift).astype(int)
-        #shift based only ;
+
         if options.get('doppler'):
             #for doppler we need 2 values.
-            #One with fit computed on picture (ind_l), one with a reference, in poly_fit option. Computed here
+            #One with fit computed on picture from sky for example(ind_l_reference), one with measuring minima on each frame.
             p = options.get('poly_fit')
             curve = polyval(np.asarray(np.arange(ih), dtype='d'), p)
-            fit = [[math.floor(curve[y]), curve[y] - math.floor(curve[y]), y] for y in range(ih)]
-            ind_l_reference = (np.asarray(fit)[:, 0] + np.ones(ih)*shift).astype(int)
-        # CLEAN if fitting goes too far
-        ind_l[ind_l < 0] = 0
-        ind_l[ind_l > iw - 2] = iw - 2
-        ind_r = (ind_l + np.ones(ih)).astype(int)
-        col_indeces.append((ind_l, ind_r))
-    #col_indeces are list of indeces of pixels of minima (or shifted)
-    left_weights = np.ones(ih) - np.asarray(fit)[:, 1]
-    right_weights = np.ones(ih) - left_weights
+            fit_reference = [[math.floor(curve[y]), curve[y] - math.floor(curve[y]), y] for y in range(ih)]
+            ind_l_reference = (np.asarray(fit_reference)[:, 0] + np.ones(ih)*shift).astype(int)
+            # CLEAN if fitting goes too far
+            ind_l_reference[ind_l_reference < 0] = 0
+            ind_l_reference[ind_l_reference > iw - 2] = iw - 2
+            ind_r_reference = (ind_l_reference + np.ones(ih)).astype(int)
+            col_indeces_references.append((ind_l_reference, ind_r_reference))
+        else:
+            ind_l = (np.asarray(fit)[:, 0] + np.ones(ih)*shift).astype(int)
+            #shift based only ;
+            ind_l[ind_l < 0] = 0
+            ind_l[ind_l > iw - 2] = iw - 2
+            ind_r = (ind_l + np.ones(ih)).astype(int)
+            col_indeces.append((ind_l, ind_r))
+
+    if options.get('doppler'):
+        left_weights_reference = np.ones(ih) - np.asarray(fit_reference)[:, 1]
+        right_weights_reference = np.ones(ih) - left_weights_reference
+    else :
+        #col_indeces are list of indeces of pixels of minima (or shifted)
+        left_weights = np.ones(ih) - np.asarray(fit)[:, 1]
+        right_weights = np.ones(ih) - left_weights
 
     # lance la reconstruction du disk a partir des trames
     logme('reader num frames: {}'.format(rdr.FrameCount))
     while rdr.has_frames():
         img = rdr.next_frame()
+
         for i in range(len(options['shift'])):
             #extract column
-            ind_l, ind_r = col_indeces[i]
-            left_col = img[np.arange(ih), ind_l]
-            right_col = img[np.arange(ih), ind_r]
 
+            if options.get('doppler') is not None: #compute difference between actual and reference
 
-            if options.get('doppler'): #compute difference between actual and reference
+                ind_l_reference, ind_r_reference = col_indeces_references[i]
                 left_col_reference = img[np.arange(ih), ind_l_reference]
-                IntensiteRaie = left_col-left_col_reference
-                #print(np.max(IntensiteRaie),left_col, left_col_reference)
+                right_col_reference = img[np.arange(ih), ind_r_reference]
+                #find minimum of each line and remove reference
+                IntensiteRaie = np.argmin(img, axis=1)\
+                    - (left_col_reference * left_weights_reference\
+                        + right_col_reference * right_weights_reference)
             else:
+                ind_l, ind_r = col_indeces[i]
+                left_col = img[np.arange(ih), ind_l]
+                right_col = img[np.arange(ih), ind_r]
                 IntensiteRaie = left_col * left_weights + right_col * right_weights
+
             disk_list[i][:, rdr.FrameIndex] = IntensiteRaie
 
         if options['flag_display'] and rdr.FrameIndex % 10 == 0:
@@ -279,94 +298,106 @@ def correct_transversalium2(img, circle, borders, options, not_fake, basefich):
 
 
 def image_process(frame, cercle, options, header, basefich):
-    flag_result_show = options['flag_display']
-                
-    # create a CLAHE object (Arguments are optional)
-    # clahe = cv2.createCLAHE(clipLimit=0.8, tileGridSize=(5,5))
-    clahe = cv2.createCLAHE(clipLimit=0.8, tileGridSize=(2,2))
-    cl1 = clahe.apply(frame)
-    
-    # image leger seuils
-    frame1=np.copy(frame)
-    Seuil_bas=np.percentile(frame, 25)
-    Seuil_haut=np.percentile(frame,99.9999)
-    logme('Seuil bas       :{}'.format(np.floor(Seuil_bas)))
-    logme('Seuil haut      :{}'.format(np.floor(Seuil_haut)))
-    fc=(frame1-Seuil_bas)* (65535/(Seuil_haut-Seuil_bas))
-    fc[fc<0]=0
-    fc[fc>65535] = 65535
-    frame_contrasted=np.array(fc, dtype='uint16')
-    
-    # image seuils serres 
-    frame1=np.copy(frame)
-    Seuil_bas=(Seuil_haut*0.25)
-    Seuil_haut=np.percentile(frame1,99.9999)
-    logme('Seuil bas HC    :{}'.format(np.floor(Seuil_bas)))
-    logme('Seuil haut HC   :{}'.format(np.floor(Seuil_haut)))
-    fc2=(frame1-Seuil_bas)* (65535/(Seuil_haut-Seuil_bas))
-    fc2[fc2<0]=0
-    fc2[fc2>65535] = 65535
-    frame_contrasted2=np.array(fc2, dtype='uint16')
-    
-    # image seuils protus
-    frame1=np.copy(frame)
-    Seuil_bas=0
-    Seuil_haut=np.percentile(frame1,99.9999)*0.18        
-    logme('Seuil bas protu :{}'.format(np.floor(Seuil_bas)))
-    logme('Seuil haut protu:{}'.format(np.floor(Seuil_haut)))
-    fc2=(frame1-Seuil_bas)* (65535/(Seuil_haut-Seuil_bas))
-    fc2[fc2<0]=0
-    fc2[fc2>65535] = 65535
-    frame_contrasted3=np.array(fc2, dtype='uint16')
-    if not cercle == (-1, -1, -1) and options['disk_display']:
-        x0=int(cercle[0])
-        y0=int(cercle[1])
-        r=int(cercle[2]) + options['delta_radius']
-        if r > 0:
-            frame_contrasted3=cv2.circle(frame_contrasted3, (x0,y0),r,80,-1)            
-    Seuil_bas=np.percentile(cl1, 25)
-    Seuil_haut=np.percentile(cl1,99.9999)*1.05
-    cc=(cl1-Seuil_bas)*(65535/(Seuil_haut-Seuil_bas))
-    cc[cc<0]=0
-    cc[cc>65535] = 65535
-    cc=np.array(cc, dtype='uint16')
+    if options['doppler'] is None:
+        # create a CLAHE object (Arguments are optional)
+        # clahe = cv2.createCLAHE(clipLimit=0.8, tileGridSize=(5,5))
+        clahe = cv2.createCLAHE(clipLimit=0.8, tileGridSize=(2,2))
+        cl1 = clahe.apply(frame)
 
-    # handle rotations
-    cc = np.rot90(cc, options['img_rotate']//90, axes=(0,1))
-    frame_contrasted = np.rot90(frame_contrasted, options['img_rotate']//90, axes=(0,1))
-    frame_contrasted2 = np.rot90(frame_contrasted2, options['img_rotate']//90, axes=(0,1))
-    frame_contrasted3 = np.rot90(frame_contrasted3, options['img_rotate']//90, axes=(0,1))
-    frame = np.rot90(frame, options['img_rotate']//90, axes=(0,1))
-    
-    # sauvegarde en png de clahe
-    cv2.imwrite(basefich+'_clahe.png',cc)   # Modification Jean-Francois: placed before the IF for clear reading
-    if not options['clahe_only']:
-        # sauvegarde en png pour appliquer une colormap par autre script
-        #cv2.imwrite(basefich+'_disk.png',frame_contrasted)
-        # sauvegarde en png pour appliquer une colormap par autre script
-        cv2.imwrite(basefich+'_diskHC.png',frame_contrasted2)
-        # sauvegarde en png pour appliquer une colormap par autre script
-        cv2.imwrite(basefich+'_protus.png',frame_contrasted3)
-    
-    # The 3 images are concatenated together in 1 image => 'Sun images'
-    # The 'Sun images' is scaled for the monitor maximal dimension ... it is scaled to match the dimension of the monitor without 
-    # changing the Y/X scale of the images 
-    if flag_result_show:
-        im_3 = cv2.hconcat([cc, frame_contrasted2, frame_contrasted3])
-        screen = tk.Tk()
-        screensize = screen.winfo_screenwidth(), screen.winfo_screenheight()
-        screen.destroy()
-        scale = min(screensize[0] / im_3.shape[1], screensize[1] / im_3.shape[0]) * 0.9
-        cv2.namedWindow('Sun images', cv2.WINDOW_NORMAL)
-        cv2.moveWindow('Sun images', 0, 0)
-        cv2.resizeWindow('Sun images',int(im_3.shape[1] * scale), int(im_3.shape[0] * scale))
-        cv2.imshow('Sun images',im_3)
-        cv2.waitKey(options['tempo'])  # affiche et continue
-        cv2.destroyAllWindows()
+        #if options.get('doppler') is None:
+        # image leger seuils
+        frame1=np.copy(frame)
+        Seuil_bas=np.percentile(frame, 25)
+        Seuil_haut=np.percentile(frame,99.9999)
+        logme('Seuil bas       :{}'.format(np.floor(Seuil_bas)))
+        logme('Seuil haut      :{}'.format(np.floor(Seuil_haut)))
+        fc=(frame1-Seuil_bas)* (65535/(Seuil_haut-Seuil_bas))
+        fc[fc<0]=0
+        fc[fc>65535] = 65535
+        frame_contrasted=np.array(fc, dtype='uint16')
 
-    frame2=np.copy(frame)
-    frame2=np.array(cl1, dtype='uint16')
-    # sauvegarde le fits
-    if options['save_fit']:
-        DiskHDU=fits.PrimaryHDU(frame2,header)
-        DiskHDU.writeto(basefich+ '_clahe.fits', overwrite='True')
+        # image seuils serres
+        frame1=np.copy(frame)
+        Seuil_bas=(Seuil_haut*0.25)
+        Seuil_haut=np.percentile(frame1,99.9999)
+        logme('Seuil bas HC    :{}'.format(np.floor(Seuil_bas)))
+        logme('Seuil haut HC   :{}'.format(np.floor(Seuil_haut)))
+        fc2=(frame1-Seuil_bas)* (65535/(Seuil_haut-Seuil_bas))
+        fc2[fc2<0]=0
+        fc2[fc2>65535] = 65535
+        frame_contrasted2=np.array(fc2, dtype='uint16')
+
+        # image seuils protus
+        frame1=np.copy(frame)
+        Seuil_bas=0
+        Seuil_haut=np.percentile(frame1,99.9999)*0.18
+        logme('Seuil bas protu :{}'.format(np.floor(Seuil_bas)))
+        logme('Seuil haut protu:{}'.format(np.floor(Seuil_haut)))
+        fc2=(frame1-Seuil_bas)* (65535/(Seuil_haut-Seuil_bas))
+        fc2[fc2<0]=0
+        fc2[fc2>65535] = 65535
+        frame_contrasted3=np.array(fc2, dtype='uint16')
+        if not cercle == (-1, -1, -1) and options['disk_display']:
+            x0=int(cercle[0])
+            y0=int(cercle[1])
+            r=int(cercle[2]) + options['delta_radius']
+            if r > 0:
+                frame_contrasted3=cv2.circle(frame_contrasted3, (x0,y0),r,80,-1)
+        Seuil_bas=np.percentile(cl1, 25)
+        Seuil_haut=np.percentile(cl1,99.9999)*1.05
+        cc=(cl1-Seuil_bas)*(65535/(Seuil_haut-Seuil_bas))
+        cc[cc<0]=0
+        cc[cc>65535] = 65535
+        cc=np.array(cc, dtype='uint16')
+
+        # handle rotations
+        cc = np.rot90(cc, options['img_rotate']//90, axes=(0,1))
+        frame_contrasted = np.rot90(frame_contrasted, options['img_rotate']//90, axes=(0,1))
+        frame_contrasted2 = np.rot90(frame_contrasted2, options['img_rotate']//90, axes=(0,1))
+        frame_contrasted3 = np.rot90(frame_contrasted3, options['img_rotate']//90, axes=(0,1))
+        frame = np.rot90(frame, options['img_rotate']//90, axes=(0,1))
+
+        # sauvegarde en png de clahe
+        cv2.imwrite(basefich+'_clahe.png',cc)   # Modification Jean-Francois: placed before the IF for clear reading
+
+        if not options['clahe_only']:
+            # sauvegarde en png pour appliquer une colormap par autre script
+
+            #cv2.imwrite(basefich+'_disk.png',frame_contrasted)
+            # sauvegarde en png pour appliquer une colormap par autre script
+            cv2.imwrite(basefich+'_diskHC.png',frame_contrasted2)
+            # sauvegarde en png pour appliquer une colormap par autre script
+            cv2.imwrite(basefich+'_protus.png',frame_contrasted3)
+        # The 3 images are concatenated together in 1 image => 'Sun images'
+        # The 'Sun images' is scaled for the monitor maximal dimension ... it is scaled to match the dimension of the monitor without
+        # changing the Y/X scale of the images
+        if options['flag_display']:
+            im_3 = cv2.hconcat([cc, frame_contrasted2, frame_contrasted3])
+            screen = tk.Tk()
+            screensize = screen.winfo_screenwidth(), screen.winfo_screenheight()
+            screen.destroy()
+            scale = min(screensize[0] / im_3.shape[1], screensize[1] / im_3.shape[0]) * 0.9
+            cv2.namedWindow('Sun images', cv2.WINDOW_NORMAL)
+            cv2.moveWindow('Sun images', 0, 0)
+            cv2.resizeWindow('Sun images',int(im_3.shape[1] * scale), int(im_3.shape[0] * scale))
+            cv2.imshow('Sun images',im_3)
+            cv2.waitKey(options['tempo'])  # affiche et continue
+            cv2.destroyAllWindows()
+
+        # sauvegarde le fits
+        if options['save_fit']:
+            frame2=np.copy(frame)
+            frame2=np.array(cl1, dtype='uint16')
+            DiskHDU=fits.PrimaryHDU(frame2,header)
+            DiskHDU.writeto(basefich+ '_clahe.fits', overwrite='True')
+    else: #doppler pictures
+        #TODO : this doesn't work
+        #inverse l'image
+        frame1=np.copy(frame)
+        frame2 = np.array(((2**16-1)-frame1), dtype='uint16')
+
+        mean = np.mean(np.where(frame2<np.mean(frame2)//2, 0, frame2))
+        #frame3 = np.array(np.where(frame2-int(mean)<=0,0,  frame2-int(mean)),dtype='uint16')
+        frame3 = frame2-30000
+        cv2.imwrite(basefich+'_doppler3.png',frame3)
+        cv2.imwrite(basefich+'_doppler2.png',frame2)
