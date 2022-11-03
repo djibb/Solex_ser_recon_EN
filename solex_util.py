@@ -390,7 +390,7 @@ def image_process(frame, cercle, options, header, basefich):
             frame2=np.array(cl1, dtype='uint16')
             DiskHDU=fits.PrimaryHDU(frame2,header)
             DiskHDU.writeto(basefich+ '_clahe.fits', overwrite='True')
-    else: #doppler pictures
+    elif options['doppler']: #dopplergram
         #TODO : this doesn't work
         #inverse l'image
         frame1=np.copy(frame)
@@ -401,3 +401,4 @@ def image_process(frame, cercle, options, header, basefich):
         frame3 = frame2-30000
         cv2.imwrite(basefich+'_doppler3.png',frame3)
         cv2.imwrite(basefich+'_doppler2.png',frame2)
+

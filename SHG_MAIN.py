@@ -48,6 +48,7 @@ options = {
     'workDir': '',
     'poly_fit':None,
     'doppler':None,
+    'doppler_picture':None,
 
 }
 
@@ -77,7 +78,8 @@ def usage():
     usage_ += "'w' : 'a,b,c'  produce images at a, b and c pixels from minima\n"
     usage_ += "'w' : 'x:y:w'  produce images starting at x, finishing at y, every w pixels from minima\n"
     usage_ += "'P' : 'a,b,c'  using polynome a*x²+b*x+c as fitting\n"
-    usage_ += "'D' : DOESN'T WORK ->  Dopplergram using base polynome, compute and display difference between minima \n"
+    usage_ += "'d' : 'n'      produce 3 pictures, from -n pixels, n pixel from minimum and a mean of 2.\n"
+    usage_ += "'g' : DOESN'T WORK ->  Dopplergram using base polynome, compute and display difference between minima \n"
     return usage_
     
 def treat_flag_at_cli(arguments):
@@ -91,19 +93,19 @@ def treat_flag_at_cli(arguments):
             sys.exit()
         elif character=='P':
             #find characters for shifting
-            shift = ''
+            poly = ''
             stop = False
             try :
                 while not stop:
                     if argument[1:][i+1].isdigit() or argument[1:][i+1]==',' or argument[1:][i+1]=='.' or argument[1:][i+1]=='e' or argument[1:][i+1]=='+' or argument[1:][i+1]=='-':
-                        shift += argument[1:][i+1]
+                        poly += argument[1:][i+1]
                         i += 1
                     else :
                         i += 1
                         stop = True
             except IndexError:
                 i += 1 #the reach the end of arguments.
-            shift_choice = shift.split(',')
+            poly_choices = poly_choices.split(',')
             try:
                 a, b, c = shift_choice
             except ValueError:
@@ -142,9 +144,30 @@ def treat_flag_at_cli(arguments):
         elif character=='p':
             options['disk_display'] = False
             i+=1
-        elif character=='D':
+        elif character=='g':
             options['doppler'] = True
             i+=1
+        elif character=='D':
+            #find characters for shifting
+            decal = ''
+            stop = False
+            try :
+                while not stop :
+                    print(i)
+                    if argument[1:][i+1].isdigit():
+                        decal+=argument[1:][i+1]
+                        i+=1
+                    else :
+                        i+=1
+                        stop=True
+
+            except IndexError :
+                i+=1 #the reach the end of arguments
+                options['doppler_picture'] = int(decal)
+                options['shift'] = [-int(decal), 0, int(decal)]
+            except:
+                print('Generating doppler picture need one integer')
+                sys.exit()
         else : 
             try : #all others
                 options[flag_dictionnary[character]]=True if flag_dictionnary.get(character) else False
@@ -154,8 +177,8 @@ def treat_flag_at_cli(arguments):
                 print(usage())
                 i+=1
     if options['doppler'] and options['poly_fit'] is None:
-        print('ERROR !!! D option need a polynome provided by P option.')
-        print('USAGE : python3 SHG_MAIN.py -DP1.45881927e+02,-2.16219665e-01,9.45250257e-05 files')
+        print('ERROR !!! g option need a polynome provided by P option.')
+        print('USAGE : python3 SHG_MAIN.py -gP1.45881927e+02,-2.16219665e-01,9.45250257e-05 files')
         sys.exit()
     print('options %s' % (options))
 

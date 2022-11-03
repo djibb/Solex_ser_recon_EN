@@ -59,6 +59,9 @@ def solex_proc(file, options):
             DiskHDU = fits.PrimaryHDU(disk_list[i], header=hdr)
             DiskHDU.writeto(basefich + '_raw.fits', overwrite='True')
 
+
+
+
         """
         We now apply ellipse_fit to apply the geometric correction
 
@@ -110,12 +113,23 @@ def solex_proc(file, options):
                     cercle = new_cercle
                     detransversaliumed = new_img    
             else:
-                print('Error: cannot crop square without circle fit (crop-square cancelled)')
+                logme('Error: cannot crop square without circle fit (crop-square cancelled)')
 
         if i >= 2:
             image_process(detransversaliumed, cercle, options, hdr, basefich)
-        
-        
+    if options['doppler_picture'] is not None:
+        basefich = basefich0 + '_doppler_decal=' + str(options['doppler_picture'])
+        DiskHDU1 = fits.PrimaryHDU(disk_list[0], header=hdr)
+        DiskHDU1.writeto(basefich + '_neg.fits', overwrite='True')
+
+        #DiskHDU2 = fits.PrimaryHDU((disk_list[0]+disk_list[2])/2, header=hdr)
+        DiskHDU2 = fits.PrimaryHDU((disk_list[0]+disk_list[2])/2, header=hdr)
+        DiskHDU2.writeto(basefich + '_mean.fits', overwrite='True')
+
+        DiskHDU3 = fits.PrimaryHDU(disk_list[2], header=hdr)
+        DiskHDU3.writeto(basefich + '_pos.fits', overwrite='True')
+
+
     with open(basefich0 + '_log.txt', "w") as logfile:
         logfile.writelines(mylog)
 
